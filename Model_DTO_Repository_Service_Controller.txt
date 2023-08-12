@@ -1,0 +1,283 @@
+
+
+Repository & Service Pattern in Laravel
+Joe Wadsworth
+Joe Wadsworth
+
+·
+Follow
+
+4 min read
+·
+Jan 19, 2021
+372
+
+
+8
+
+
+
+
+Are you starting off your new Laravel project? Take a moment to plan ahead!
+
+Structuring your application is the key to ensuring that you don’t get confused about your own application in the future, making it easy to create new features and understand your code. In this talk I will show practical examples of the repository and service pattern in a Laravel application.
+
+Please note: The repositories shown below aren’t decoupled from Eloquent models. This means that we are returning Eloquent objects from our methods within the repositories and not domain objects which a true repository pattern would. More will be explained later in the repositories section.
+
+Below is an basic example of the Users model folder.
+
+
+App\Modules\Users folder
+Folders have been created for each class type, as with every new feature comes a new class. It may not be on your mind right now to plan out your class locations, but seeing unorganised code months down the line will make you reconsider your choices when you started.
+
+Repositories
+The repository is a layer between the domain and data layers of your application with an interface to perform create, read, update and delete CRUD operations.
+
+As mentioned previously, the repositories shown are coupled to Eloquent models, and so they aren’t returning true domain objects. A true repository pattern would allow you to switch between different ORMs, such as changing from Eloquent to Doctrine without affecting the service layer. This can be achieved by keeping both Eloquent Models and Doctrine Entities within your repositories and returning the same domain objects from their methods. This is entirely up to you and if you feel that you would need to change ORM in the future, but for most Laravel projects this can be overkill as you may never need to change ORM.
+
+By using repositories in your application, you allow CRUD operations for an object to be handled by one class which can then be injected into other areas of your code. Below is a basic example of a user repository.
+
+<?php
+declare(strict_types=1);
+namespace App\Modules\Users\Repositories;
+
+use App\Modules\Users\User;
+use Illuminate\Database\Eloquent\Collection;
+
+class UserRepository
+{
+    /**
+     * @return Collection
+     */
+    public function getUsers(): Collection
+    {
+        return User::all();
+    }
+
+    /**
+     * @param int $userId
+     * @return User
+     */
+    public function getUserById(int $userId): User
+    {
+        return User::find($userId);
+    }
+
+    /**
+     * @param string $email
+     * @return User
+     */
+    public function getUserByEmail(string $email): User
+    {
+        return User::where('email', $email)->first();
+    }
+}
+If we ever need one of these searches in another class, we can simply embed this repository and use the relative function.
+
+Services
+A service applies the business logic of your application. It simply performs the a set task (e.g. calculating a loan, updating a user) using the information provided, using any repositories or other classes you have created outside of the service.
+
+Say we would like to allow a user to update their email. We can pass the request over to the UpdateUserService in the class, which can handle the business logic. This logic includes ensuring the email is valid, sending a verification email to the user whilst also creating a log in the user_logs table in the database to state that the user has been updated successfully.
+
+What if we then wanted a ‘Change Password’ feature on the app?
+
+use App\Modules\Users\Services\UpdateUserService;
+Inject this class into your code, use the update function within, and that’s it.
+
+The idea of the repository and service pattern are to keep the business logic (services) and the data access logic (repositories) of your app contained in their own sections.
+
+Repositories & Services in a Controller
+By keeping to this pattern, an example controller would be below.
+
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\User;
+
+use App\Http\Requests\Users\CreateUserRequest;
+use App\Modules\Users\Repositories\UserRepository;
+use App\Modules\Users\Services\CreateUserService;
+use App\Http\Responses\Users\UserResponse;
+use App\Http\Responses\Response;
+
+class UserController
+{
+    /**
+     * @var UserRepository
+     */
+    private UserRepository $repository;
+
+    /**
+     * @param UserRepository $repository
+     */
+    public function __construct(UserRepository $repository)
+    {
+        $this->repository = $repository;
+    }
+
+    /**
+     * @return Response
+     */
+    public function getUsers(): Response
+    {
+        return new Response(UserResponse::many($this->repository->getUsers()->all()));
+    }
+
+    /**
+     * @param int $userId
+     * @return Response
+     */
+    public function getUserById(int $userId): Response
+    {
+        return new Response(UserResponse::one($this->repository->getUserById($userId)));
+    }
+
+    /**
+     * @param CreateUserRequest $request
+     * @param CreateUserService $service
+     * @return Response
+     */
+    public function createUser(CreateUserRequest $request, CreateUserService $service): Response
+    {
+        $user = $service->create(
+            $request->get('name'),
+            $request->get('email'),
+            $request->get('password')
+        );
+        
+        return new Response(UserResponse::one($user));
+    }
+}
+As you can see, no logic that the service should handle is contained in the controller, hence making it easy to read. Also, no data-access logic is handled by the controller.
+
+By sticking to this logic, projects can remain easy to read. The example below shows a loan calculator within a finance app with the same structure as above.
+
+
+App\Modules\Loans folder
+Furthermore, the application above uses Doctrine entities instead of Eloquent models. Although the ORM is different as discussed prior, the structure can be used the exact same, and can make it easy for any new developer looking at your code to understand what is happening.
+
+Be sure to give claps if you found this article useful!
+
+Repository Pattern
+Laravel
+PHP
+Design Patterns
+Programming
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+DTO
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+What is DTO and how to use it in a Laravel application?
+EL OUFIR Hatim
+EL OUFIR Hatim
+
+·
+Follow
+
+2 min read
+·
+Feb 28
+252
+
+
+6
+
+
+
+
+
+
+DTO stands for Data Transfer Object, which is a design pattern used to transfer data between different layers of an application. In a DTO, data is encapsulated into an object, which can then be easily passed between different parts of the application.
+
+In a Laravel application, DTOs can be used to transfer data between controllers and services, or between services and repositories. This helps to keep the business logic separate from the presentation logic, and makes the application more modular and maintainable.
+
+To use DTOs in a Laravel application, you can create a new class for each DTO that you need. For example, if you have a User model with properties like name, email, and password, you could create a UserDTO class like this:
+
+namespace App\DTO;
+
+class UserDTO
+{
+    public string $name;
+    public string $email;
+    public string $password;
+
+    public function __construct(string $name, string $email, string $password)
+    {
+        $this->name = $name;
+        $this->email = $email;
+        $this->password = $password;
+    }
+}
+You can then use this DTO in your controller, for example, to create a new user:
+
+namespace App\Http\Controllers;
+
+use App\DTO\UserDTO;
+use App\Services\UserService;
+use Illuminate\Http\Request;
+
+class UserController extends Controller
+{
+    private UserService $userService;
+
+    public function __construct(UserService $userService)
+    {
+        $this->userService = $userService;
+    }
+
+    public function createUser(Request $request)
+    {
+        $userDTO = new UserDTO(
+            $request->input('name'),
+            $request->input('email'),
+            $request->input('password')
+        );
+
+        $user = $this->userService->createUser($userDTO);
+
+        return response()->json($user);
+    }
+}
+In the above example, the createUser method in the UserController receives a Request object from the client. It then creates a new UserDTO object using the input data from the request, and passes this DTO to the createUser method of the UserService. The UserService can then use the DTO to create a new user in the database, without having to know anything about the request or the controller.
+
+Using DTOs in this way can make your Laravel application more modular, maintainable, and testable.
+
+Here is an example of how to link your DTO to your Model and then save it into your database:
+
+namespace App\Services;
+
+use App\DTO\UserDTO;
+use App\Models\User;
+
+class UserService
+{
+    public function createUser(UserDTO $userDTO): User
+    {
+        $user = new User();
+        $user->name = $userDTO->name;
+        $user->email = $userDTO->email;
+        $user->password = $userDTO->password;
+        $user->save();
+
+        return $user;
+    }
+}
+In the createUser method, a new User model is created and its properties are set using the values from the UserDTO. The model is then saved to the database using the save() method.
+
+Of course, you can use a UserRepository to do the save logic, so you will have a complete architecture using Model> DTO> Repository> Service> Controller architecture for me is the best and I am using it almost in every complex Laravel project.
+
+Laravel
+Dto
